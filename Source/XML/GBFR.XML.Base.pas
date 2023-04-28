@@ -8,77 +8,100 @@ uses
   Xml.XMLIntf,
   Xml.XMLDoc;
 
-type TGBFRXmlBase = class(TInterfacedObject)
-
+type
+  TGBFRXmlBase = class(TInterfacedObject)
   protected
     FXml: IXMLDocument;
 
-    function Iso8601ToDateTime(AValue: String): TDateTime;
+    function Iso8601ToDateTime(AValue: string): TDateTime;
 
-    function GetNodeStr      (ANode: IXMLNode; ATag: String; ADefault: String = ''): string;
-    function GetNodeFloat    (ANode: IXMLNode; ATag: String): Double;
-    function GetNodeCurrency (ANode: IXMLNode; ATag: String): Currency;
-    function GetNodeInt      (ANode: IXMLNode; ATag: String; ADefault: Integer = 0): Integer;
-    function GetNodeDate     (ANode: IXMLNode; ATag: String): TDateTime; virtual;
+    function GetNodeStr(ANode: IXMLNode; ATag: string; ADefault: string = ''): string;
+    function GetNodeFloat(ANode: IXMLNode; ATag: string): Double;
+    function GetNodeCurrency(ANode: IXMLNode; ATag: string): Currency;
+    function GetNodeInt(ANode: IXMLNode; ATag: string; ADefault: Integer = 0): Integer;
+    function GetNodeDate(ANode: IXMLNode; ATag: string): TDateTime; virtual;
+    function GetNodeBoolInt(ANode: IXMLNode; ATag: string): Boolean;
 
-    procedure loadXmlContent(Value: String);
-    procedure loadXmlFile   (Value: String);
-
+    function LoadTag(ANodePai: IXMLNode; ATag: string): IXMLNode;
+    procedure LoadXmlContent(AValue: string);
+    procedure LoadXmlFile(AValue: string);
   public
-    constructor create;
+    constructor Create;
+    destructor Destroy; override;
 end;
 
 implementation
 
 { TGBFRXmlBase }
 
-constructor TGBFRXmlBase.create;
+constructor TGBFRXmlBase.Create;
 begin
   FXml := TXMLDocument.Create(nil);
 end;
 
-function TGBFRXmlBase.GetNodeCurrency(ANode: IXMLNode; ATag: String): Currency;
-var
-  str: string;
+destructor TGBFRXmlBase.Destroy;
 begin
-  str    := GetNodeStr(ANode, ATag).Replace('.', ',');
-  Result := StrToCurrDef(str, 0);
+  inherited;
 end;
 
-function TGBFRXmlBase.GetNodeDate(ANode: IXMLNode; ATag: String): TDateTime;
+function TGBFRXmlBase.GetNodeBoolInt(ANode: IXMLNode; ATag: string): Boolean;
 var
-  str: string;
+  LIntVal: Integer;
 begin
-  result := 0;
-  str    := GetNodeStr(ANode, ATag);
-  if not str.IsEmpty then
-    Result := Iso8601ToDateTime(str);
+  LIntVal := GetNodeInt(ANode, ATag);
+  Result := LIntVal > 0;
 end;
 
-function TGBFRXmlBase.GetNodeFloat(ANode: IXMLNode; ATag: String): Double;
+function TGBFRXmlBase.GetNodeCurrency(ANode: IXMLNode; ATag: string): Currency;
 var
-  str: string;
+  LStr: string;
 begin
-  str    := GetNodeStr(ANode, ATag).Replace('.', ',');
-  Result := StrToFloatDef(str, 0);
+  LStr := GetNodeStr(ANode, ATag);
+  {$IF CompilerVersion >= 35.0}
+  Result := StrToCurrDef(LStr.Replace('.', FormatSettings.DecimalSeparator), 0);
+  {$ELSE}
+  Result := StrToCurrDef(LStr.Replace('.', ','), 0);
+  {$ENDIF}
 end;
 
-function TGBFRXmlBase.GetNodeInt(ANode: IXMLNode; ATag: String; ADefault: Integer = 0): Integer;
+function TGBFRXmlBase.GetNodeDate(ANode: IXMLNode; ATag: string): TDateTime;
 var
-  str: string;
+  LStr: string;
 begin
-  str    := GetNodeStr(ANode, ATag);
-  Result := StrToIntDef(str, ADefault);
+  Result := 0;
+  LStr := GetNodeStr(ANode, ATag);
+  if not LStr.IsEmpty then
+    Result := Iso8601ToDateTime(LStr);
 end;
 
-function TGBFRXmlBase.GetNodeStr(ANode: IXMLNode; ATag: String; ADefault: String = ''): string;
+function TGBFRXmlBase.GetNodeFloat(ANode: IXMLNode; ATag: string): Double;
+var
+  LStr: string;
 begin
-  result := ADefault;
+  LStr := GetNodeStr(ANode, ATag);
+  {$IF CompilerVersion >= 35.0}
+  Result := StrToFloatDef(LStr.Replace('.', FormatSettings.DecimalSeparator), 0);
+  {$ELSE}
+  Result := StrToFloatDef(LStr.Replace('.', ','), 0);
+  {$ENDIF}
+end;
+
+function TGBFRXmlBase.GetNodeInt(ANode: IXMLNode; ATag: string; ADefault: Integer = 0): Integer;
+var
+  LStr: string;
+begin
+  LStr := GetNodeStr(ANode, ATag);
+  Result := StrToIntDef(LStr, ADefault);
+end;
+
+function TGBFRXmlBase.GetNodeStr(ANode: IXMLNode; ATag: string; ADefault: string = ''): string;
+begin
+  Result := ADefault;
   if ANode.ChildNodes.FindNode(ATag) <> nil then
-    result := ANode.ChildNodes.FindNode(ATag).Text;
+    Result := ANode.ChildNodes.FindNode(ATag).Text;
 end;
 
-function TGBFRXmlBase.Iso8601ToDateTime(AValue: String): TDateTime;
+function TGBFRXmlBase.Iso8601ToDateTime(AValue: string): TDateTime;
 var
   Y, M, D, HH, MI, SS: Cardinal;
 begin
@@ -127,30 +150,44 @@ begin
   end;
 end;
 
-procedure TGBFRXmlBase.loadXmlContent(Value: String);
+function TGBFRXmlBase.LoadTag(ANodePai: IXMLNode; ATag: string): IXMLNode;
 var
-  xml : string;
+  LSplit: TArray<string>;
+  I: Integer;
 begin
-  xml := Value.Replace(#$D#$A#9, '')
-              .Replace(#$A#9, '')
-              .Replace(#9, '')
-              .Replace(#$D, '')
-              .Replace(#$A, '');
-
-  FXml.Active := False;
-  FXml.LoadFromXML(xml);
+  LSplit := ATag.Split([',']);
+  Result := ANodePai.ChildNodes.FindNode(LSplit[0]);
+  if not Assigned(Result) then
+    Exit;
+  for I := 1 to Pred(Length(LSplit)) do
+  begin
+    Result := Result.ChildNodes.FindNode(LSplit[I]);
+    if not Assigned(Result) then
+      Exit;
+  end;
 end;
 
-procedure TGBFRXmlBase.loadXmlFile(Value: String);
+procedure TGBFRXmlBase.LoadXmlContent(AValue: string);
 var
-  arquivo: TStringList;
+  LXml : string;
 begin
-  arquivo := TStringList.Create;
+  LXml := AValue.Replace(#$D#$A#9, '').Replace(#$A#9, '')
+    .Replace(#9, '').Replace(#$D, '').Replace(#$A, '');
+
+  FXml.Active := False;
+  FXml.LoadFromXML(LXml);
+end;
+
+procedure TGBFRXmlBase.LoadXmlFile(AValue: string);
+var
+  LArquivo: TStringList;
+begin
+  LArquivo := TStringList.Create;
   try
-    arquivo.LoadFromFile(Value);
-    loadXmlContent(arquivo.Text);
+    LArquivo.LoadFromFile(AValue);
+    LoadXmlContent(LArquivo.Text);
   finally
-    arquivo.Free;
+    LArquivo.Free;
   end;
 end;
 

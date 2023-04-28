@@ -1,4 +1,4 @@
-unit GBFR.NFe.XML.Default;
+﻿unit GBFR.NFe.XML.Default;
 
 interface
 
@@ -6,9 +6,7 @@ uses
   GBFR.XML.Base,
   GBFR.NFe.XML.Interfaces,
   GBFR.NFe.Model.Types,
-  GBFR.NFe.Model.Item,
-  GBFR.NFe.Model.NotaFiscal,
-  GBFR.NFe.Model.FormaPagamento,
+  GBFR.NFe.Model.Classes,
   System.Classes,
   System.SysUtils,
   Xml.XMLIntf,
@@ -17,31 +15,37 @@ uses
 type TGBFRNFeXMLDefault = class(TGBFRXmlBase, IGBFRNFeXML)
 
   private
-    FNota: TGBRFNFeModelNotaFiscal;
+    FModel: TGBFRNFeModel;
     [Weak]
     FInfNFe: IXMLNode;
 
     function GetNodeImposto(ANodeDet: IXMLNode; ATag: String): IXMLNode;
 
-    procedure loadNotaFiscal;
-    procedure loadEmitente;
-    procedure loadDestinatario;
-    procedure loadItems;
-    procedure loadPagamentos;
-    procedure loadTotals;
-    procedure loadInfoAdicionais;
-    procedure loadProtNFe;
+    procedure loadTagInfNFe;
+    procedure loadTagIde;
+    procedure loadTagIdeNFref;
+    procedure loadTagEmit;
+    procedure loadTagDest;
+    procedure loadTagDetItem;
+    procedure loadTagPag;
+    procedure loadTagTotal;
+    procedure loadTagTotalICMSTot(ANodeTotal: IXMLNode);
+    procedure loadTagTotalISSQNTot(ANodeTotal: IXMLNode);
+    procedure loadTagInfAdic;
+    procedure loadTagInfRespTec;
+    procedure loadTagProtNFe;
 
-    procedure loadImposto       (ANodeDet: IXMLNode);
-    procedure loadImpostoICMS   (ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
-    procedure loadImpostoPIS    (ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
-    procedure loadImpostoCOFINS (ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
-    procedure loadImpostoIPI    (ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
-    procedure loadImpostoII     (ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
-    procedure loadImpostoISSQN  (ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
+    procedure loadTagImposto(ANodeDet: IXMLNode);
+    procedure loadTagImpostoICMS(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
+    procedure loadTagImpostoPIS(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
+    procedure loadTagImpostoCOFINS(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
+    procedure loadTagImpostoIPI(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
+    procedure loadTagImpostoII(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
+    procedure loadTagImpostoISSQN(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
   protected
-    function loadFromContent(Value: String): TGBRFNFeModelNotaFiscal;
-    function loadFromFile   (Value: String): TGBRFNFeModelNotaFiscal;
+    function loadFromContent(Value: String): TGBFRNFeModel;
+    function loadFromFile(Value: String): TGBFRNFeModel;
+    function loadFromStream(Value: TStream): TGBFRNFeModel;
 
   public
     class function New: IGBFRNFeXML;
@@ -53,292 +57,323 @@ implementation
 
 function TGBFRNFeXMLDefault.GetNodeImposto(ANodeDet: IXMLNode; ATag: String): IXMLNode;
 begin
-  result := ANodeDet.ChildNodes.FindNode('imposto');
-  if not Assigned(result) then
+  Result := ANodeDet.ChildNodes.FindNode('imposto');
+  if not Assigned(Result) then
     Exit;
 
-  result := result.ChildNodes.FindNode(ATag);
-  if not Assigned(result) then
+  Result := Result.ChildNodes.FindNode(ATag);
+  if not Assigned(Result) then
     Exit;
 
-  result := result.ChildNodes.Get(0);
-  if not Assigned(result) then
-    Exit;
-end;
-
-procedure TGBFRNFeXMLDefault.loadDestinatario;
-var
-  nodeDestinatario : IXMLNode;
-  nodeEndereco     : IXMLNode;
-begin
-  nodeDestinatario := FInfNFe.ChildNodes.FindNode('dest');
-
-  if not Assigned(nodeDestinatario) then
-    Exit;
-
-  FNota.dest.xNome := GetNodeStr(nodeDestinatario, 'xNome');
-  FNota.dest.CNPJ  := GetNodeStr(nodeDestinatario, 'CNPJ');
-  FNota.dest.CPF   := GetNodeStr(nodeDestinatario, 'CPF');
-  FNota.dest.IE    := GetNodeStr(nodeDestinatario, 'IE');
-  FNota.dest.IM    := GetNodeStr(nodeDestinatario, 'IM');
-  FNota.dest.email := GetNodeStr(nodeDestinatario, 'email');
-
-  nodeEndereco := nodeDestinatario.ChildNodes.FindNode('enderDest');
-  if Assigned(nodeEndereco) then
+  if not ATag.ToLower.Equals('issqn') then
   begin
-    FNota.dest.enderDest.xLgr    := GetNodeStr(nodeEndereco, 'xLgr');
-    FNota.dest.enderDest.nro     := GetNodeStr(nodeEndereco, 'nro');
-    FNota.dest.enderDest.xCpl    := GetNodeStr(nodeEndereco, 'xCpl');
-    FNota.dest.enderDest.xBairro := GetNodeStr(nodeEndereco, 'xBairro');
-    FNota.dest.enderDest.cMun    := GetNodeStr(nodeEndereco, 'cMun');
-    FNota.dest.enderDest.xMun    := GetNodeStr(nodeEndereco, 'xMun');
-    FNota.dest.enderDest.UF      := GetNodeStr(nodeEndereco, 'UF');
-    FNota.dest.enderDest.CEP     := GetNodeStr(nodeEndereco, 'CEP');
-    FNota.dest.enderDest.cPais   := GetNodeStr(nodeEndereco, 'cPais');
-    FNota.dest.enderDest.xPais   := GetNodeStr(nodeEndereco, 'xPais');
-    FNota.dest.enderDest.fone    := GetNodeStr(nodeEndereco, 'fone');
+    Result := Result.ChildNodes.Get(0);
+    if not Assigned(Result) then
+      Exit;
   end;
 end;
 
-procedure TGBFRNFeXMLDefault.loadEmitente;
+procedure TGBFRNFeXMLDefault.loadTagDest;
 var
-  nodeEmitente: IXMLNode;
-  nodeEndereco: IXMLNode;
+  LNodeDestinatario: IXMLNode;
+  LNodeEndereco: IXMLNode;
 begin
-  nodeEmitente := FInfNFe.ChildNodes.FindNode('emit');
+  LNodeDestinatario := FInfNFe.ChildNodes.FindNode('dest');
 
-  if not Assigned(nodeEmitente) then
+  if not Assigned(LNodeDestinatario) then
+    Exit;
+
+  FModel.dest.xNome := GetNodeStr(LNodeDestinatario, 'xNome');
+  FModel.dest.CNPJ := GetNodeStr(LNodeDestinatario, 'CNPJ');
+  FModel.dest.CPF := GetNodeStr(LNodeDestinatario, 'CPF');
+  FModel.dest.IE := GetNodeStr(LNodeDestinatario, 'IE');
+  FModel.dest.IM := GetNodeStr(LNodeDestinatario, 'IM');
+  FModel.dest.email := GetNodeStr(LNodeDestinatario, 'email');
+
+  FModel.dest.indIEDest.fromInteger(GetNodeInt(LNodeDestinatario, 'indIEDest'));
+
+  LNodeEndereco := LNodeDestinatario.ChildNodes.FindNode('enderDest');
+  if Assigned(LNodeEndereco) then
+  begin
+    FModel.dest.enderDest.xLgr := GetNodeStr(LNodeEndereco, 'xLgr');
+    FModel.dest.enderDest.nro := GetNodeStr(LNodeEndereco, 'nro');
+    FModel.dest.enderDest.xCpl := GetNodeStr(LNodeEndereco, 'xCpl');
+    FModel.dest.enderDest.xBairro := GetNodeStr(LNodeEndereco, 'xBairro');
+    FModel.dest.enderDest.cMun := GetNodeStr(LNodeEndereco, 'cMun');
+    FModel.dest.enderDest.xMun := GetNodeStr(LNodeEndereco, 'xMun');
+    FModel.dest.enderDest.UF := GetNodeStr(LNodeEndereco, 'UF');
+    FModel.dest.enderDest.CEP := GetNodeStr(LNodeEndereco, 'CEP');
+    FModel.dest.enderDest.cPais := GetNodeStr(LNodeEndereco, 'cPais');
+    FModel.dest.enderDest.xPais := GetNodeStr(LNodeEndereco, 'xPais');
+    FModel.dest.enderDest.fone := GetNodeStr(LNodeEndereco, 'fone');
+  end;
+end;
+
+procedure TGBFRNFeXMLDefault.loadTagEmit;
+var
+  LNodeEmitente: IXMLNode;
+  LNodeEndereco: IXMLNode;
+begin
+  LNodeEmitente := FInfNFe.ChildNodes.FindNode('emit');
+
+  if not Assigned(LNodeEmitente) then
     raise Exception.CreateFmt('Error on read Tag emit', []);
 
-  FNota.emit.xNome := GetNodeStr(nodeEmitente, 'xNome');
-  FNota.emit.xFant := GetNodeStr(nodeEmitente, 'xFant');
-  FNota.emit.CNPJ  := GetNodeStr(nodeEmitente, 'CNPJ');
-  FNota.emit.IE    := GetNodeStr(nodeEmitente, 'IE');
-  FNota.emit.IM    := GetNodeStr(nodeEmitente, 'IM');
+  FModel.emit.xNome := GetNodeStr(LNodeEmitente, 'xNome');
+  FModel.emit.xFant := GetNodeStr(LNodeEmitente, 'xFant');
+  FModel.emit.CNPJ := GetNodeStr(LNodeEmitente, 'CNPJ');
+  FModel.emit.IE := GetNodeStr(LNodeEmitente, 'IE');
+  FModel.emit.IM := GetNodeStr(LNodeEmitente, 'IM');
+  FModel.emit.CNAE := GetNodeStr(LNodeEmitente, 'CNAE');
 
-  nodeEndereco := nodeEmitente.ChildNodes.FindNode('enderEmit');
-  if Assigned(nodeEndereco) then
+  FModel.emit.CRT.fromInteger(GetNodeInt(LNodeEmitente, 'CRT'));
+
+  LNodeEndereco := LNodeEmitente.ChildNodes.FindNode('enderEmit');
+  if Assigned(LNodeEndereco) then
   begin
-    FNota.emit.enderEmit.xLgr    := GetNodeStr(nodeEndereco, 'xLgr');
-    FNota.emit.enderEmit.nro     := GetNodeStr(nodeEndereco, 'nro');
-    FNota.emit.enderEmit.xCpl    := GetNodeStr(nodeEndereco, 'xCpl');
-    FNota.emit.enderEmit.xBairro := GetNodeStr(nodeEndereco, 'xBairro');
-    FNota.emit.enderEmit.cMun    := GetNodeStr(nodeEndereco, 'cMun');
-    FNota.emit.enderEmit.xMun    := GetNodeStr(nodeEndereco, 'xMun');
-    FNota.emit.enderEmit.UF      := GetNodeStr(nodeEndereco, 'UF');
-    FNota.emit.enderEmit.CEP     := GetNodeStr(nodeEndereco, 'CEP');
-    FNota.emit.enderEmit.cPais   := GetNodeStr(nodeEndereco, 'cPais');
-    FNota.emit.enderEmit.xPais   := GetNodeStr(nodeEndereco, 'xPais');
-    FNota.emit.enderEmit.fone    := GetNodeStr(nodeEndereco, 'fone');
+    FModel.emit.enderEmit.xLgr := GetNodeStr(LNodeEndereco, 'xLgr');
+    FModel.emit.enderEmit.nro := GetNodeStr(LNodeEndereco, 'nro');
+    FModel.emit.enderEmit.xCpl := GetNodeStr(LNodeEndereco, 'xCpl');
+    FModel.emit.enderEmit.xBairro := GetNodeStr(LNodeEndereco, 'xBairro');
+    FModel.emit.enderEmit.cMun := GetNodeStr(LNodeEndereco, 'cMun');
+    FModel.emit.enderEmit.xMun := GetNodeStr(LNodeEndereco, 'xMun');
+    FModel.emit.enderEmit.UF := GetNodeStr(LNodeEndereco, 'UF');
+    FModel.emit.enderEmit.CEP := GetNodeStr(LNodeEndereco, 'CEP');
+    FModel.emit.enderEmit.cPais := GetNodeStr(LNodeEndereco, 'cPais');
+    FModel.emit.enderEmit.xPais := GetNodeStr(LNodeEndereco, 'xPais');
+    FModel.emit.enderEmit.fone := GetNodeStr(LNodeEndereco, 'fone');
   end;
 end;
 
-procedure TGBFRNFeXMLDefault.loadImposto(ANodeDet: IXMLNode);
+procedure TGBFRNFeXMLDefault.loadTagImposto(ANodeDet: IXMLNode);
 var
-  item : TGBFRNFeModelItem;
+  LItem: TGBFRNFeModelItem;
+  LNodeImposto: IXMLNode;
 begin
-  item := FNota.itens.Last;
+  LItem := FModel.itens.Last;
 
-  loadImpostoICMS   (ANodeDet, item);
-  loadImpostoIPI    (ANodeDet, item);
-  loadImpostoPIS    (ANodeDet, item);
-  loadImpostoCOFINS (ANodeDet, item);
-  loadImpostoII     (ANodeDet, item);
-  loadImpostoISSQN  (ANodeDet, item);
+  LNodeImposto := ANodeDet.ChildNodes.FindNode('imposto');
+  LItem.imposto.vTotTrib := GetNodeCurrency(LNodeImposto, 'vTotTrib');
+
+  loadTagImpostoICMS(ANodeDet, LItem);
+  loadTagImpostoIPI(ANodeDet, LItem);
+  loadTagImpostoPIS(ANodeDet, LItem);
+  loadTagImpostoCOFINS(ANodeDet, LItem);
+  loadTagImpostoISSQN(ANodeDet, LItem);
+  loadTagImpostoII(ANodeDet, LItem);
 end;
 
-procedure TGBFRNFeXMLDefault.loadImpostoCOFINS(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
+procedure TGBFRNFeXMLDefault.loadTagImpostoCOFINS(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
 var
-  nodeImposto : IXMLNode;
+  LNodeImposto: IXMLNode;
 begin
-  nodeImposto := GetNodeImposto(ANodeDet, 'COFINS');
+  LNodeImposto := GetNodeImposto(ANodeDet, 'COFINS');
 
-  if not Assigned(nodeImposto) then
+  if not Assigned(LNodeImposto) then
     Exit;
 
-  AItem.COFINS.CST     := GetNodeStr(nodeImposto, 'CST');
-  AItem.COFINS.vBC     := GetNodeCurrency(nodeImposto, 'vBC');
-  AItem.COFINS.pCOFINS := GetNodeCurrency(nodeImposto, 'pCOFINS');
-  AItem.COFINS.vCOFINS := GetNodeCurrency(nodeImposto, 'vCOFINS');
+  AItem.imposto.COFINS.CST := GetNodeStr(LNodeImposto, 'CST');
+  AItem.imposto.COFINS.vBC := GetNodeCurrency(LNodeImposto, 'vBC');
+  AItem.imposto.COFINS.pCOFINS := GetNodeCurrency(LNodeImposto, 'pCOFINS');
+  AItem.imposto.COFINS.vCOFINS := GetNodeCurrency(LNodeImposto, 'vCOFINS');
 end;
 
-procedure TGBFRNFeXMLDefault.loadImpostoICMS(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
+procedure TGBFRNFeXMLDefault.loadTagImpostoICMS(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
 var
-  nodeImposto : IXMLNode;
+  LNodeImposto: IXMLNode;
 begin
-  nodeImposto := GetNodeImposto(ANodeDet, 'ICMS');
-  if not Assigned(nodeImposto) then
+  LNodeImposto := GetNodeImposto(ANodeDet, 'ICMS');
+  if not Assigned(LNodeImposto) then
     Exit;
 
-  AItem.ICMS.CST        := GetNodeStr(nodeImposto, 'CST');
-  AItem.ICMS.orig       := GetNodeStr(nodeImposto, 'orig');
-  AItem.ICMS.vBC        := GetNodeCurrency(nodeImposto, 'vBC');
-  AItem.ICMS.pICMS      := GetNodeCurrency(nodeImposto, 'pICMS');
-  AItem.ICMS.vICMS      := GetNodeCurrency(nodeImposto, 'vICMS');
-  AItem.ICMS.pRedBC     := GetNodeCurrency(nodeImposto, 'pRedBC');
-  AItem.ICMS.vICMSDeson := GetNodeCurrency(nodeImposto, 'vICMSDeson');
-  AItem.ICMS.vBCSTRet   := GetNodeCurrency(nodeImposto, 'vBCSTRet');
+  AItem.imposto.ICMS.CST := GetNodeStr(LNodeImposto, 'CST');
+  AItem.imposto.ICMS.CSOSN := GetNodeStr(LNodeImposto, 'CSOSN');
+  AItem.imposto.ICMS.orig := GetNodeStr(LNodeImposto, 'orig');
+  AItem.imposto.ICMS.vBC := GetNodeCurrency(LNodeImposto, 'vBC');
+  AItem.imposto.ICMS.pICMS := GetNodeCurrency(LNodeImposto, 'pICMS');
+  AItem.imposto.ICMS.vICMS := GetNodeCurrency(LNodeImposto, 'vICMS');
+  AItem.imposto.ICMS.pRedBC := GetNodeCurrency(LNodeImposto, 'pRedBC');
+  AItem.imposto.ICMS.vICMSDeson := GetNodeCurrency(LNodeImposto, 'vICMSDeson');
+  AItem.imposto.ICMS.vBCSTRet := GetNodeCurrency(LNodeImposto, 'vBCSTRet');
+  AItem.imposto.ICMS.vBCFCP := GetNodeCurrency(LNodeImposto, 'vBCFCP');
+  AItem.imposto.ICMS.pFCP := GetNodeCurrency(LNodeImposto, 'pFCP');
 
-  AItem.ICMS.modBC.fromInteger( GetNodeInt(nodeImposto, 'modBC'));
-  AItem.ICMS.modBCST.fromInteger(GetNodeInt(nodeImposto, 'modBCST'));
+  AItem.imposto.ICMS.modBC.fromInteger( GetNodeInt(LNodeImposto, 'modBC'));
+  AItem.imposto.ICMS.modBCST.fromInteger(GetNodeInt(LNodeImposto, 'modBCST'));
+  AItem.imposto.ICMS.motDesICMS.fromInteger(GetNodeInt(LNodeImposto, 'motDesICMS'));
 
-  if AItem.ICMS.vBCST > 0 then
+  if AItem.imposto.ICMS.vBCST > 0 then
   begin
-    AItem.ICMS.pST        := GetNodeCurrency(nodeImposto, 'pST');
-    AItem.ICMS.vICMSSTRet := GetNodeCurrency(nodeImposto, 'vICMSSTRet');
+    AItem.imposto.ICMS.pST := GetNodeCurrency(LNodeImposto, 'pST');
+    AItem.imposto.ICMS.vICMSSTRet := GetNodeCurrency(LNodeImposto, 'vICMSSTRet');
   end
   else
   begin
-    AItem.ICMS.vBCST   := GetNodeCurrency(nodeImposto, 'vBCST');
-    AItem.ICMS.pICMSST := GetNodeCurrency(nodeImposto, 'pICMSST');
-    AItem.ICMS.vICMSST := GetNodeCurrency(nodeImposto, 'vICMSST');
+    AItem.imposto.ICMS.vBCST := GetNodeCurrency(LNodeImposto, 'vBCST');
+    AItem.imposto.ICMS.pICMSST := GetNodeCurrency(LNodeImposto, 'pICMSST');
+    AItem.imposto.ICMS.vICMSST := GetNodeCurrency(LNodeImposto, 'vICMSST');
   end;
 end;
 
-procedure TGBFRNFeXMLDefault.loadImpostoII(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
+procedure TGBFRNFeXMLDefault.loadTagImpostoII(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
 var
-  nodeImposto : IXMLNode;
+  LNodeImposto: IXMLNode;
 begin
-  nodeImposto := GetNodeImposto(ANodeDet, 'II');
+  LNodeImposto := GetNodeImposto(ANodeDet, 'II');
 
-  if not Assigned(nodeImposto) then
+  if not Assigned(LNodeImposto) then
     Exit;
 
-  AItem.II.CST  := GetNodeStr(nodeImposto, 'CST');
-  AItem.II.vBC  := GetNodeCurrency(nodeImposto, 'vBC');
-  AItem.II.vII  := GetNodeCurrency(nodeImposto, 'vII');
-  AItem.II.vIOF := GetNodeCurrency(nodeImposto, 'vIOF');
+  AItem.imposto.II.CST := GetNodeStr(LNodeImposto, 'CST');
+  AItem.imposto.II.vBC := GetNodeCurrency(LNodeImposto, 'vBC');
+  AItem.imposto.II.vII := GetNodeCurrency(LNodeImposto, 'vII');
+  AItem.imposto.II.vIOF := GetNodeCurrency(LNodeImposto, 'vIOF');
 end;
 
-procedure TGBFRNFeXMLDefault.loadImpostoIPI(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
+procedure TGBFRNFeXMLDefault.loadTagImpostoIPI(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
 var
-  nodeImposto : IXMLNode;
+  LNodeImposto: IXMLNode;
 begin
-  nodeImposto := GetNodeImposto(ANodeDet, 'IPI');
-  if not Assigned(nodeImposto) then
+  LNodeImposto := GetNodeImposto(ANodeDet, 'IPI');
+  if not Assigned(LNodeImposto) then
     Exit;
 
-  AItem.IPI.CST  := GetNodeStr(nodeImposto, 'CST');
-  AItem.IPI.cEnq := GetNodeStr(nodeImposto, 'cEnq');
-  AItem.IPI.vBC  := GetNodeCurrency(nodeImposto, 'vBC');
-  AItem.IPI.pIPI := GetNodeCurrency(nodeImposto, 'pIPI');
-  AItem.IPI.vIPI := GetNodeCurrency(nodeImposto, 'vIPI');
+  AItem.imposto.IPI.CST := GetNodeStr(LNodeImposto, 'CST');
+  AItem.imposto.IPI.cEnq := GetNodeStr(LNodeImposto, 'cEnq');
+  AItem.imposto.IPI.vBC := GetNodeCurrency(LNodeImposto, 'vBC');
+  AItem.imposto.IPI.pIPI := GetNodeCurrency(LNodeImposto, 'pIPI');
+  AItem.imposto.IPI.vIPI := GetNodeCurrency(LNodeImposto, 'vIPI');
 end;
 
-procedure TGBFRNFeXMLDefault.loadImpostoISSQN(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
+procedure TGBFRNFeXMLDefault.loadTagImpostoISSQN(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
 var
-  nodeImposto : IXMLNode;
+  LNodeImposto: IXMLNode;
 begin
-  nodeImposto := GetNodeImposto(ANodeDet, 'ISSQN');
-  if not Assigned(nodeImposto) then
+  LNodeImposto := GetNodeImposto(ANodeDet, 'ISSQN');
+  if not Assigned(LNodeImposto) then
     Exit;
 
-  AItem.ISSQN.vBC    := GetNodeCurrency(nodeImposto, 'vBC');
-  AItem.ISSQN.vISSQN := GetNodeCurrency(nodeImposto, 'vISSQN');
-  AItem.ISSQN.vAliq  := GetNodeCurrency(nodeImposto, 'vAliq');
+  AItem.imposto.ISSQN.vBC := GetNodeCurrency(LNodeImposto, 'vBC');
+  AItem.imposto.ISSQN.vAliq := GetNodeCurrency(LNodeImposto, 'vAliq');
+  AItem.imposto.ISSQN.vISSQN := GetNodeCurrency(LNodeImposto, 'vISSQN');
+  AItem.imposto.ISSQN.cMunFG := GetNodeStr(LNodeImposto, 'cMunFG');
+  AItem.imposto.ISSQN.cListServ := GetNodeStr(LNodeImposto, 'cListServ');
+
+  AItem.imposto.ISSQN.indISS.fromInteger(GetNodeInt(LNodeImposto, 'indISS', 1));
+  AItem.imposto.ISSQN.indIncentivo.fromInteger(GetNodeInt(LNodeImposto, 'indIncentivo', 1));
 end;
 
-procedure TGBFRNFeXMLDefault.loadImpostoPIS(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
+procedure TGBFRNFeXMLDefault.loadTagImpostoPIS(ANodeDet: IXMLNode; AItem: TGBFRNFeModelItem);
 var
-  nodeImposto : IXMLNode;
+  LNodeImposto: IXMLNode;
 begin
-  nodeImposto := GetNodeImposto(ANodeDet, 'PIS');
-  if not Assigned(nodeImposto) then
+  LNodeImposto := GetNodeImposto(ANodeDet, 'PIS');
+  if not Assigned(LNodeImposto) then
     Exit;
 
-  AItem.PIS.CST  := GetNodeStr(nodeImposto, 'CST');
-  AItem.PIS.vBC  := GetNodeFloat(nodeImposto, 'vBC');
-  AItem.PIS.pPIS := GetNodeFloat(nodeImposto, 'pPIS');
-  AItem.PIS.vPIS := GetNodeFloat(nodeImposto, 'vPIS');
+  AItem.imposto.PIS.CST := GetNodeStr(LNodeImposto, 'CST');
+  AItem.imposto.PIS.vBC := GetNodeFloat(LNodeImposto, 'vBC');
+  AItem.imposto.PIS.pPIS := GetNodeFloat(LNodeImposto, 'pPIS');
+  AItem.imposto.PIS.vPIS := GetNodeFloat(LNodeImposto, 'vPIS');
 end;
 
-procedure TGBFRNFeXMLDefault.loadInfoAdicionais;
+procedure TGBFRNFeXMLDefault.loadTagInfAdic;
 var
-  nodeInfAdic: IXMLNode;
+  LNodeInfAdic: IXMLNode;
 begin
-  nodeInfAdic := FInfNFe.ChildNodes.FindNode('infAdic');
-  if not Assigned(nodeInfAdic) then
+  LNodeInfAdic := FInfNFe.ChildNodes.FindNode('infAdic');
+  if not Assigned(LNodeInfAdic) then
     Exit;
 
-  FNota.infCpl := GetNodeStr(nodeInfAdic, 'infCpl');
+  FModel.infAdic.infAdFisco := GetNodeStr(LNodeInfAdic, 'infAdFisco');
+  FModel.infAdic.infCpl := GetNodeStr(LNodeInfAdic, 'infCpl');
 end;
 
-procedure TGBFRNFeXMLDefault.loadItems;
+procedure TGBFRNFeXMLDefault.loadTagDetItem;
 var
-  item     : TGBFRNFeModelItem;
-  nodeItem : IXMLNode;
-  nodeDet  : IXMLNode;
+  LItem: TGBFRNFeModelItem;
+  LNodeItem: IXMLNode;
+  LNodeDet: IXMLNode;
 begin
-  nodeDet := FInfNFe.ChildNodes.FindNode('det');
-  if not Assigned(nodeDet) then
+  LNodeDet := FInfNFe.ChildNodes.FindNode('det');
+  if not Assigned(LNodeDet) then
     Exit;
 
   repeat
-    nodeItem := nodeDet.ChildNodes.FindNode('prod');
-    if Assigned(nodeItem) then
+    LNodeItem := LNodeDet.ChildNodes.FindNode('prod');
+    if Assigned(LNodeItem) then
     begin
-      item := TGBFRNFeModelItem.Create;
+      LItem := TGBFRNFeModelItem.Create;
       try
-        item.nItem     := FNota.itens.Count + 1;
-        item.cProd     := GetNodeStr(nodeItem, 'cProd');
-        item.xProd     := GetNodeStr(nodeItem, 'xProd');
-        item.cEAN      := GetNodeStr(nodeItem, 'cEAN');
-        item.CFOP      := GetNodeStr(nodeItem, 'CFOP');
-        item.NCM       := GetNodeStr(nodeItem, 'NCM');
-        item.uCom      := GetNodeStr(nodeItem, 'uCom');
-        item.qCom      := GetNodeCurrency(nodeItem, 'qCom');
-        item.vUnCom    := GetNodeCurrency(nodeItem, 'vUnCom');
-        item.cEANTrib  := GetNodeStr(nodeItem, 'cEANTrib');
-        item.uTrib     := GetNodeStr(nodeItem, 'uTrib');
-        item.qTrib     := GetNodeCurrency(nodeItem, 'qTrib');
-        item.vUnTrib   := GetNodeCurrency(nodeItem, 'vUnTrib');
-        item.CEST      := GetNodeStr(nodeItem, 'CEST');
-        item.infAdProd := GetNodeStr(nodeItem, 'infAdProd');
-        item.vDesc     := GetNodeCurrency(nodeItem, 'vDesc');
-        item.vFrete    := GetNodeCurrency(nodeItem, 'vFrete');
-        item.vSeg      := GetNodeCurrency(nodeItem, 'vSeg');
-        item.vOutro    := GetNodeCurrency(nodeItem, 'vOutro');
-        item.cBenef    := GetNodeStr(nodeItem, 'cBenef');
-        item.xPed      := GetNodeStr(nodeItem, 'xPed');
-        item.nItemPed  := GetNodeStr(nodeItem, 'nItemPed');
+        LItem.nItem := FModel.itens.Count + 1;
+        LItem.cProd := GetNodeStr(LNodeItem, 'cProd');
+        LItem.xProd := GetNodeStr(LNodeItem, 'xProd');
+        LItem.cEAN := GetNodeStr(LNodeItem, 'cEAN');
+        LItem.CFOP := GetNodeStr(LNodeItem, 'CFOP');
+        LItem.NCM := GetNodeStr(LNodeItem, 'NCM');
+        LItem.uCom := GetNodeStr(LNodeItem, 'uCom');
+        LItem.qCom := GetNodeCurrency(LNodeItem, 'qCom');
+        LItem.vUnCom := GetNodeCurrency(LNodeItem, 'vUnCom');
+        LItem.vProd := GetNodeCurrency(LNodeItem, 'vProd');
+        LItem.cEANTrib := GetNodeStr(LNodeItem, 'cEANTrib');
+        LItem.uTrib := GetNodeStr(LNodeItem, 'uTrib');
+        LItem.qTrib := GetNodeCurrency(LNodeItem, 'qTrib');
+        LItem.vUnTrib := GetNodeCurrency(LNodeItem, 'vUnTrib');
+        LItem.CEST := GetNodeStr(LNodeItem, 'CEST');
+        LItem.infAdProd := GetNodeStr(LNodeItem, 'infAdProd');
+        LItem.vDesc := GetNodeCurrency(LNodeItem, 'vDesc');
+        LItem.vFrete := GetNodeCurrency(LNodeItem, 'vFrete');
+        LItem.vSeg := GetNodeCurrency(LNodeItem, 'vSeg');
+        LItem.vOutro := GetNodeCurrency(LNodeItem, 'vOutro');
+        LItem.cBenef := GetNodeStr(LNodeItem, 'cBenef');
+        LItem.xPed := GetNodeStr(LNodeItem, 'xPed');
+        LItem.nItemPed := GetNodeStr(LNodeItem, 'nItemPed');
 
-        item.indTot.fromInteger(GetNodeInt(nodeItem, 'indTot'));
+        LItem.indTot.fromInteger(GetNodeInt(LNodeItem, 'indTot'));
       except
-        item.Free;
+        LItem.Free;
         raise;
       end;
 
-      FNota.itens.Add(item);
-      loadImposto(nodeDet);
+      FModel.itens.Add(LItem);
+      loadTagImposto(LNodeDet);
     end;
 
-    nodeDet := nodeDet.NextSibling;
-  until (nodeDet = nil) or (nodeItem = nil);
+    LNodeDet := LNodeDet.NextSibling;
+  until (LNodeDet = nil) or (LNodeItem = nil);
 end;
 
-procedure TGBFRNFeXMLDefault.loadNotaFiscal;
+procedure TGBFRNFeXMLDefault.loadTagIde;
 var
-  nodeIDE : IXMLNode;
+  LNodeIDE: IXMLNode;
 begin
   try
-    FInfNFe := FXml.DocumentElement.ChildNodes.Get(0)
-                                   .ChildNodes.Get(0);
-    if not Assigned(FInfNFe) then
-      raise Exception.CreateFmt('Error on read Tag infNFe', []);
+    LNodeIDE := FInfNFe.ChildNodes.FindNode('ide');
 
-    nodeIDE := FInfNFe.ChildNodes.FindNode('ide');
-
-    if Assigned(nodeIDE) then
+    if Assigned(LNodeIDE) then
     begin
-      FNota.tpAmb.fromInteger(GetNodeInt(nodeIDE, 'tpAmb', 2));
+      FModel.ide.tpAmb.fromInteger(GetNodeInt(LNodeIDE, 'tpAmb', 2));
+      FModel.ide.tpNF.fromInteger(GetNodeInt(LNodeIDE, 'tpNF'));
+      FModel.ide.idDest.fromInteger(GetNodeInt(LNodeIDE, 'idDest', 1));
+      FModel.ide.tpImp.fromInteger(GetNodeInt(LNodeIDE, 'tpImp', 1));
+      FModel.ide.tpEmis.fromInteger(GetNodeInt(LNodeIDE, 'tpEmis', 1));
+      FModel.ide.finNFe.fromInteger(GetNodeInt(LNodeIDE, 'finNFe', 1));
+      FModel.ide.indFinal.fromInteger(GetNodeInt(LNodeIDE, 'indFinal', 0));
+      FModel.ide.indPres.fromInteger(GetNodeInt(LNodeIDE, 'indPres', 1));
+      FModel.ide.procEmi.fromInteger(GetNodeInt(LNodeIDE, 'procEmi', 0));
 
-      FNota.cNF     := GetNodeStr(nodeIDE, 'cNF');
-      FNota.natOp   := GetNodeStr(nodeIDE, 'natOp');
-      FNota.&mod    := GetNodeStr(nodeIDE, 'mod');
-      FNota.serie   := GetNodeStr(nodeIDE, 'serie');
-      FNota.nNF     := GetNodeInt(nodeIDE, 'nNF');
-      FNota.dhEmi   := GetNodeDate(nodeIDE, 'dhEmi');
-      FNota.dSaiEnt := GetNodeDate(nodeIDE, 'dSaiEnt');
+      FModel.ide.cUF := GetNodeStr(LNodeIDE, 'cUF');
+      FModel.ide.cNF := GetNodeStr(LNodeIDE, 'cNF');
+      FModel.ide.natOp := GetNodeStr(LNodeIDE, 'natOp');
+      FModel.ide.&mod := GetNodeStr(LNodeIDE, 'mod');
+      FModel.ide.serie := GetNodeStr(LNodeIDE, 'serie');
+      FModel.ide.nNF := GetNodeInt(LNodeIDE, 'nNF');
+      FModel.ide.dhEmi := GetNodeDate(LNodeIDE, 'dhEmi');
+      FModel.ide.dSaiEnt := GetNodeDate(LNodeIDE, 'dSaiEnt');
+      FModel.ide.cMunFG := GetNodeStr(LNodeIDE, 'cMunFG');
+      FModel.ide.cDV := GetNodeStr(LNodeIDE, 'cDV');
+
+      loadTagIdeNFref;
     end;
   except
     on e : Exception do
@@ -349,140 +384,251 @@ begin
   end;
 end;
 
-procedure TGBFRNFeXMLDefault.loadPagamentos;
+procedure TGBFRNFeXMLDefault.loadTagIdeNFref;
 var
-  pagamento  : TGBFRNFeModelFormaPagamento;
-  nodePag    : IXMLNode;
-  nodeDetPag : IXMLNode;
-  i          : Integer;
+  LNodeIDE: IXMLNode;
+  LNodeNFRef: IXMLNode;
 begin
-  nodePag := FInfNFe.ChildNodes.FindNode('pag');
-  if not Assigned(nodePag) then
+  LNodeIDE := FInfNFe.ChildNodes.FindNode('ide');
+  if not Assigned(LNodeIDE) then
     Exit;
 
-  FNota.pag.vTroco := GetNodeCurrency(nodePag, 'vTroco');
+  LNodeNFRef := LNodeIDE.ChildNodes.FindNode('NFref');
+  if not Assigned(LNodeNFRef) then
+    Exit;
 
-  nodePag.ChildNodes.First;
-  for i := 0 to Pred(nodePag.ChildNodes.Count) do
-  begin
-    nodeDetPag := nodePag.ChildNodes.Get(i);
-    pagamento := TGBFRNFeModelFormaPagamento.Create;
+  repeat
+    FModel.ide.addNFRef(GetNodeStr(LNodeNFRef, 'refNFe'));
+    LNodeNFRef := LNodeNFRef.NextSibling;
+  until LNodeNFRef = nil;
+end;
+
+procedure TGBFRNFeXMLDefault.loadTagPag;
+var
+  LPagamento: TGBFRNFeModelFormaPagamento;
+  LNodePag: IXMLNode;
+  LNodeDetPag: IXMLNode;
+  LNodeCard: IXMLNode;
+begin
+  LNodePag := FInfNFe.ChildNodes.FindNode('pag');
+  if not Assigned(LNodePag) then
+    Exit;
+
+  FModel.pag.vTroco := GetNodeCurrency(LNodePag, 'vTroco');
+  LNodeDetPag := LNodePag.ChildNodes.FindNode('detPag');
+  if not Assigned(LNodeDetPag) then
+    Exit;
+
+  repeat
+    LPagamento := TGBFRNFeModelFormaPagamento.Create;
     try
-      pagamento.vPag := GetNodeCurrency(nodeDetPag, 'vPag');
-      pagamento.CNPJ := GetNodeStr(nodeDetPag, 'CNPJ');
-      pagamento.cAut := GetNodeStr(nodeDetPag, 'cAut');
+      LPagamento.vPag := GetNodeCurrency(LNodeDetPag, 'vPag');
+      LPagamento.CNPJ := GetNodeStr(LNodeDetPag, 'CNPJ');
+      LPagamento.cAut := GetNodeStr(LNodeDetPag, 'cAut');
 
-      pagamento.tPag.fromString(GetNodeStr(nodeDetPag, 'tPag', '99'));
-      pagamento.tpIntegra.fromInteger(GetNodeInt(nodeDetPag, 'tpIntegra', 1));
-      pagamento.tBand.fromString(GetNodeStr(nodeDetPag, 'tBand', '99'));
+      LPagamento.tPag.fromString(GetNodeStr(LNodeDetPag, 'tPag', '99'));
+      LPagamento.tpIntegra.fromInteger(GetNodeInt(LNodeDetPag, 'tpIntegra', 1));
+      LPagamento.tBand.fromString(GetNodeStr(LNodeDetPag, 'tBand', '99'));
 
-      FNota.pag.detPag.Add(pagamento);
+      LNodeCard := LNodeDetPag.ChildNodes.FindNode('card');
+      if Assigned(LNodeCard) then
+      begin
+        LPagamento.CNPJ := GetNodeStr(LNodeCard, 'CNPJ');
+        LPagamento.cAut := GetNodeStr(LNodeCard, 'cAut');
+        LPagamento.tpIntegra.fromInteger(GetNodeInt(LNodeCard, 'tpIntegra', 1));
+        LPagamento.tBand.fromString(GetNodeStr(LNodeCard, 'tBand', '99'));
+      end;
+
+      FModel.pag.detPag.Add(LPagamento);
     except
-      pagamento.Free;
+      LPagamento.Free;
       raise;
     end;
-  end;
+
+    LNodeDetPag := LNodeDetPag.NextSibling;
+  until (LNodeDetPag = nil) or (LNodeDetPag.ChildNodes.FindNode('vPag') = nil);
 end;
 
-procedure TGBFRNFeXMLDefault.loadProtNFe;
+procedure TGBFRNFeXMLDefault.loadTagProtNFe;
 var
-  nodeProt: IXMLNode;
+  LNodeProt: IXMLNode;
 begin
-  nodeProt := FXml.DocumentElement.ChildNodes.FindNode('protNFe');
-  if not Assigned(nodeProt) then
+  LNodeProt := FXml.DocumentElement.ChildNodes.FindNode('protNFe');
+  if not Assigned(LNodeProt) then
     Exit;
 
-  nodeProt := nodeProt.ChildNodes.FindNode('infProt');
-  if not Assigned(nodeProt) then
+  LNodeProt := LNodeProt.ChildNodes.FindNode('infProt');
+  if not Assigned(LNodeProt) then
     Exit;
 
-  FNota.protNFe.chNFe   := GetNodeStr(nodeProt, 'chNFe');
-  FNota.protNFe.nProt   := GetNodeStr(nodeProt, 'nProt');
-  FNota.protNFe.cStat   := GetNodeInt(nodeProt, 'cStat');
-  FNota.protNFe.xMotivo := GetNodeStr(nodeProt, 'xMotivo');
-  FNota.protNFe.verAplic:= GetNodeStr(nodeProt, 'verAplic');
-  FNota.protNFe.dhRecbto:= GetNodeDate(nodeProt, 'dhRecbto');
-  FNota.protNFe.digVal  := GetNodeStr(nodeProt, 'digVal');
+  FModel.protNFe.chNFe := GetNodeStr(LNodeProt, 'chNFe');
+  FModel.protNFe.nProt := GetNodeStr(LNodeProt, 'nProt');
+  FModel.protNFe.cStat := GetNodeInt(LNodeProt, 'cStat');
+  FModel.protNFe.xMotivo := GetNodeStr(LNodeProt, 'xMotivo');
+  FModel.protNFe.verAplic := GetNodeStr(LNodeProt, 'verAplic');
+  FModel.protNFe.dhRecbto := GetNodeDate(LNodeProt, 'dhRecbto');
+  FModel.protNFe.digVal := GetNodeStr(LNodeProt, 'digVal');
 
-  FNota.protNFe.tpAmb.fromInteger(GetNodeInt(nodeProt, 'tpAmb', 2));
+  FModel.protNFe.tpAmb.fromInteger(GetNodeInt(LNodeProt, 'tpAmb', 2));
 end;
 
-procedure TGBFRNFeXMLDefault.loadTotals;
+procedure TGBFRNFeXMLDefault.loadTagInfRespTec;
 var
-  nodeTotal: IXMLNode;
-  nodeICMSTot: IXMLNode;
+  LNodeInfRespTec: IXMLNode;
 begin
-  nodeTotal := FInfNFe.ChildNodes.FindNode('total');
-  if not Assigned(nodeTotal) then
+  LNodeInfRespTec := FInfNFe.ChildNodes.FindNode('infRespTec');
+  if not Assigned(LNodeInfRespTec) then
     Exit;
 
-  nodeICMSTot := nodeTotal.ChildNodes.FindNode('ICMSTot');
-  if not Assigned(nodeICMSTot) then
+  FModel.infRespTec.CNPJ := GetNodeStr(LNodeInfRespTec, 'CNPJ');
+  FModel.infRespTec.xContato := GetNodeStr(LNodeInfRespTec, 'xContato');
+  FModel.infRespTec.email := GetNodeStr(LNodeInfRespTec, 'email');
+  FModel.infRespTec.fone := GetNodeStr(LNodeInfRespTec, 'fone');
+end;
+
+procedure TGBFRNFeXMLDefault.loadTagTotal;
+var
+  LNodeTotal: IXMLNode;
+begin
+  LNodeTotal := FInfNFe.ChildNodes.FindNode('total');
+  if not Assigned(LNodeTotal) then
     Exit;
 
-  FNota.ICMSTot.vBC          := GetNodeCurrency(nodeICMSTot, 'vBC');
-  FNota.ICMSTot.vICMS        := GetNodeCurrency(nodeICMSTot, 'vICMS');
-  FNota.ICMSTot.vICMSDeson   := GetNodeCurrency(nodeICMSTot, 'vICMSDeson');
-  FNota.ICMSTot.vBCST        := GetNodeCurrency(nodeICMSTot, 'vBCST');
-  FNota.ICMSTot.vTotTrib     := GetNodeCurrency(nodeICMSTot, 'vTotTrib');
-  FNota.ICMSTot.vFCPUFDest   := GetNodeCurrency(nodeICMSTot, 'vFCPUFDest');
-  FNota.ICMSTot.vICMSUFDest  := GetNodeCurrency(nodeICMSTot, 'vICMSUFDest');
-  FNota.ICMSTot.vICMSUFRemet := GetNodeCurrency(nodeICMSTot, 'vICMSUFRemet');
-  FNota.ICMSTot.vFCP         := GetNodeCurrency(nodeICMSTot, 'vFCP');
-  FNota.ICMSTot.vBCST        := GetNodeCurrency(nodeICMSTot, 'vBCST');
-  FNota.ICMSTot.vST          := GetNodeCurrency(nodeICMSTot, 'vST');
-  FNota.ICMSTot.vFCPST       := GetNodeCurrency(nodeICMSTot, 'vFCPST');
-  FNota.ICMSTot.vFCPSTRet    := GetNodeCurrency(nodeICMSTot, 'vFCPSTRet');
-  FNota.ICMSTot.vProd        := GetNodeCurrency(nodeICMSTot, 'vProd');
-  FNota.ICMSTot.vFrete       := GetNodeCurrency(nodeICMSTot, 'vFrete');
-  FNota.ICMSTot.vSeg         := GetNodeCurrency(nodeICMSTot, 'vSeg');
-  FNota.ICMSTot.vDesc        := GetNodeCurrency(nodeICMSTot, 'vDesc');
-  FNota.ICMSTot.vII          := GetNodeCurrency(nodeICMSTot, 'vII');
-  FNota.ICMSTot.vIPI         := GetNodeCurrency(nodeICMSTot, 'vIPI');
-  FNota.ICMSTot.vPIS         := GetNodeCurrency(nodeICMSTot, 'vPIS');
-  FNota.ICMSTot.vCOFINS      := GetNodeCurrency(nodeICMSTot, 'vCOFINS');
-  FNota.ICMSTot.vOutro       := GetNodeCurrency(nodeICMSTot, 'vOutro');
-  FNota.ICMSTot.vNF          := GetNodeCurrency(nodeICMSTot, 'vNF');
+  loadTagTotalICMSTot(LNodeTotal);
+  loadTagTotalISSQNTot(LNodeTotal);
+end;
+
+procedure TGBFRNFeXMLDefault.loadTagTotalICMSTot(ANodeTotal: IXMLNode);
+var
+  LNodeICMSTot: IXMLNode;
+begin
+  LNodeICMSTot := ANodeTotal.ChildNodes.FindNode('ICMSTot');
+  if not Assigned(LNodeICMSTot) then
+    Exit;
+
+  FModel.ICMSTot.vBC := GetNodeCurrency(LNodeICMSTot, 'vBC');
+  FModel.ICMSTot.vICMS := GetNodeCurrency(LNodeICMSTot, 'vICMS');
+  FModel.ICMSTot.vICMSDeson := GetNodeCurrency(LNodeICMSTot, 'vICMSDeson');
+  FModel.ICMSTot.vBCST := GetNodeCurrency(LNodeICMSTot, 'vBCST');
+  FModel.ICMSTot.vTotTrib := GetNodeCurrency(LNodeICMSTot, 'vTotTrib');
+  FModel.ICMSTot.vFCPUFDest := GetNodeCurrency(LNodeICMSTot, 'vFCPUFDest');
+  FModel.ICMSTot.vICMSUFDest := GetNodeCurrency(LNodeICMSTot, 'vICMSUFDest');
+  FModel.ICMSTot.vICMSUFRemet := GetNodeCurrency(LNodeICMSTot, 'vICMSUFRemet');
+  FModel.ICMSTot.vFCP := GetNodeCurrency(LNodeICMSTot, 'vFCP');
+  FModel.ICMSTot.vBCST := GetNodeCurrency(LNodeICMSTot, 'vBCST');
+  FModel.ICMSTot.vST := GetNodeCurrency(LNodeICMSTot, 'vST');
+  FModel.ICMSTot.vFCPST := GetNodeCurrency(LNodeICMSTot, 'vFCPST');
+  FModel.ICMSTot.vFCPSTRet := GetNodeCurrency(LNodeICMSTot, 'vFCPSTRet');
+  FModel.ICMSTot.vProd := GetNodeCurrency(LNodeICMSTot, 'vProd');
+  FModel.ICMSTot.vFrete := GetNodeCurrency(LNodeICMSTot, 'vFrete');
+  FModel.ICMSTot.vSeg := GetNodeCurrency(LNodeICMSTot, 'vSeg');
+  FModel.ICMSTot.vDesc := GetNodeCurrency(LNodeICMSTot, 'vDesc');
+  FModel.ICMSTot.vII := GetNodeCurrency(LNodeICMSTot, 'vII');
+  FModel.ICMSTot.vIPI := GetNodeCurrency(LNodeICMSTot, 'vIPI');
+  FModel.ICMSTot.vPIS := GetNodeCurrency(LNodeICMSTot, 'vPIS');
+  FModel.ICMSTot.vCOFINS := GetNodeCurrency(LNodeICMSTot, 'vCOFINS');
+  FModel.ICMSTot.vOutro := GetNodeCurrency(LNodeICMSTot, 'vOutro');
+  FModel.ICMSTot.vNF := GetNodeCurrency(LNodeICMSTot, 'vNF');
+end;
+
+procedure TGBFRNFeXMLDefault.loadTagTotalISSQNTot(ANodeTotal: IXMLNode);
+var
+  LNodeISSQNTot: IXMLNode;
+begin
+  LNodeISSQNTot := ANodeTotal.ChildNodes.FindNode('ISSQNtot');
+  if not Assigned(LNodeISSQNTot) then
+    Exit;
+
+  FModel.ISSQNTot.vServ := GetNodeCurrency(LNodeISSQNTot, 'vServ');
+  FModel.ISSQNTot.vBC := GetNodeCurrency(LNodeISSQNTot, 'vBC');
+  FModel.ISSQNTot.vISS := GetNodeCurrency(LNodeISSQNTot, 'vISS');
+  FModel.ISSQNTot.vPIS := GetNodeCurrency(LNodeISSQNTot, 'vPIS');
+  FModel.ISSQNTot.vCOFINS := GetNodeCurrency(LNodeISSQNTot, 'vCOFINS');
+  FModel.ISSQNTot.dCompet := GetNodeDate(LNodeISSQNTot, 'dCompet');
 end;
 
 class function TGBFRNFeXMLDefault.New: IGBFRNFeXML;
 begin
-  result := Self.create;
+  Result := Self.create;
 end;
 
-function TGBFRNFeXMLDefault.loadFromContent(Value: String): TGBRFNFeModelNotaFiscal;
+function TGBFRNFeXMLDefault.loadFromContent(Value: String): TGBFRNFeModel;
 begin
   loadXmlContent(Value);
 
-  result := TGBRFNFeModelNotaFiscal.create;
+  Result := TGBFRNFeModel.create;
   try
-    FNota := Result;
+    FModel := Result;
 
-    loadNotaFiscal;
-    loadEmitente;
-    loadDestinatario;
-    loadItems;
-    loadInfoAdicionais;
-    loadTotals;
-    loadPagamentos;
-    loadProtNFe;
+    loadTagInfNFe;
+    loadTagIde;
+    loadTagEmit;
+    loadTagDest;
+    loadTagDetItem;
+    loadTagInfAdic;
+    loadTagInfRespTec;
+    loadTagTotal;
+    loadTagPag;
+    loadTagProtNFe;
   except
     Result.Free;
     raise;
   end;
 end;
 
-function TGBFRNFeXMLDefault.loadFromFile(Value: String): TGBRFNFeModelNotaFiscal;
+function TGBFRNFeXMLDefault.loadFromFile(Value: String): TGBFRNFeModel;
 var
-  xmlFile: TStrings;
+  LXmlFile: TStrings;
 begin
-  xmlFile := TStringList.Create;
+  LXmlFile := TStringList.Create;
   try
-    xmlFile.LoadFromFile(Value);
-    result := loadFromContent(xmlFile.Text);
+    LXmlFile.LoadFromFile(Value);
+    Result := loadFromContent(LXmlFile.Text);
   finally
-    xmlFile.Free;
+    LXmlFile.Free;
   end;
+end;
+
+function TGBFRNFeXMLDefault.loadFromStream(Value: TStream): TGBFRNFeModel;
+var
+  LStringStream: TStringStream;
+  LContent: string;
+begin
+  LStringStream := TStringStream.Create;
+  try
+    LStringStream.LoadFromStream(Value);
+    LContent := LStringStream.DataString.Replace('﻿', '');
+    Result := loadFromContent(LContent)
+  finally
+    LStringStream.Free;
+  end;
+end;
+
+procedure TGBFRNFeXMLDefault.loadTagInfNFe;
+var
+  LNode: IXMLNode;
+begin
+  repeat
+    if LNode = nil then
+      LNode := FXml.DocumentElement
+    else
+    begin
+      if LNode.ChildNodes.Count = 0 then
+      begin
+        LNode := nil;
+        break;
+      end;
+      LNode := LNode.ChildNodes.Get(0);
+    end;
+  until (LNode = nil) or (LNode.NodeName = 'infNFe');
+
+  if (not Assigned(LNode)) or (not LNode.NodeName.Equals( 'infNFe' )) then
+    raise Exception.CreateFmt('Error on read Tag infNFe', []);
+
+  FInfNFe := LNode;
+
+  FModel.Id := FInfNFe.Attributes['Id'];
+  FModel.versao := FInfNFe.Attributes['versao'];
 end;
 
 end.
